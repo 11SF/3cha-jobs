@@ -1,72 +1,87 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"log/slog"
-	"os"
 	"time"
 
-	"github.com/robfig/cron/v3"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/driver/pgdriver"
 
 	"portal/batch/config"
-	"portal/batch/job"
+	"portal/batch/job/queue"
+	"portal/batch/job/queue/access"
+	"portal/batch/scheduler"
 )
 
+var commit string
+
 func main() {
+	ctx := context.Background()
+
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	db, err := connectDB(cfg.Database.DSN())
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
-		os.Exit(1)
+		panic(err)
 	}
 
-	runner := job.NewDailyQueueJob(db)
+	bkk, _ := time.LoadLocation("Asia/Bangkok")
 
-	// Run immediately on startup to catch any missed entry (e.g. after restart).
-	runner.Run()
-
-	// Schedule to run at 00:05 UTC every day.
-	c := cron.New()
-	if _, err := c.AddFunc("5 0 * * *", runner.Run); err != nil {
-		slog.Error("failed to register cron", "error", err)
-		os.Exit(1)
+	s := registerJobs(cfg, db, bkk)
+	if err := s.Validate(); err != nil {
+		slog.Error("job config validation failed", "error", err)
+		panic(err)
 	}
-	c.Start()
 
-	slog.Info("batch service started — scheduled at 00:05 UTC daily")
-	select {} // block forever
+	now := time.Now().In(bkk)
+	slog.Info("batch triggered", "bkk_hour", now.Hour())
+
+	if err := s.Run(ctx, now.Hour()); err != nil {
+		slog.Error("failed to run scheduler", "error", err)
+		panic(err)
+	}
 }
 
-func connectDB(dsn string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
+func registerJobs(cfg config.Config, db *bun.DB, loc *time.Location) *scheduler.Scheduler {
+	jobEntries, err := config.ParseJobConfig(cfg.JobConfig)
 	if err != nil {
-		return nil, err
+		slog.Error("failed to load job config", "error", err)
+		panic(err)
 	}
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-	sqlDB.SetMaxIdleConns(2)
-	sqlDB.SetMaxOpenConns(5)
-	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// Wait for the DB to be ready (useful in Docker Compose startup race).
-	for i := 0; i < 10; i++ {
-		if err := sqlDB.Ping(); err == nil {
+	s := scheduler.New(jobEntries)
+	s.Register(queue.NewQueueJob(
+		loc,
+		access.NewQueueStorage(db),
+		access.NewMemberStorage(db),
+		access.NewHolidayStorage(db),
+	))
+
+	return s
+}
+
+func connectDB(dsn string) (*bun.DB, error) {
+	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+	db := bun.NewDB(sqldb, pgdialect.New())
+
+	sqldb.SetMaxIdleConns(2)
+	sqldb.SetMaxOpenConns(5)
+	sqldb.SetConnMaxLifetime(time.Hour)
+
+	for i := range 10 {
+		if err := db.Ping(); err == nil {
 			break
 		}
 		slog.Warn("waiting for database...", "attempt", i+1)
 		time.Sleep(2 * time.Second)
 	}
-	return db, sqlDB.Ping()
+	return db, db.Ping()
 }
-
