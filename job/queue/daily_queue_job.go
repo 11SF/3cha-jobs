@@ -25,7 +25,7 @@ func (j *QueueJob) Run(ctx context.Context) error {
 		return nil
 	}
 
-	if !j.isWorkingDay(ctx, today, date) {
+	if !isWorkingDay(ctx, j.holidayStorage, today, date) {
 		slog.Info("not a working day, skipping", "date", date)
 		return nil
 	}
@@ -54,14 +54,6 @@ func (j *QueueJob) Run(ctx context.Context) error {
 
 	slog.Info("created queue entry", "date", date, "member", next.Name)
 	return nil
-}
-
-func (j *QueueJob) isWorkingDay(ctx context.Context, date time.Time, dateStr string) bool {
-	wd := date.Weekday()
-	if wd == time.Saturday || wd == time.Sunday {
-		return false
-	}
-	return !j.holidayStorage.IsHoliday(ctx, dateStr)
 }
 
 func roundRobinNext(members []access.Member, lastID string) access.Member {

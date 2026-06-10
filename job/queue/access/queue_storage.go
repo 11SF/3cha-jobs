@@ -11,6 +11,7 @@ type QueueStorage interface {
 	TodayEntry(ctx context.Context, date string) (*DailyQueue, error)
 	ClosePendingBefore(ctx context.Context, date string)
 	CreateEntry(ctx context.Context, e DailyQueue) error
+	MarkDone(ctx context.Context, date string) error
 }
 
 type queueStorage struct {
@@ -43,5 +44,13 @@ func (s *queueStorage) ClosePendingBefore(ctx context.Context, date string) {
 
 func (s *queueStorage) CreateEntry(ctx context.Context, e DailyQueue) error {
 	_, err := s.db.NewInsert().Model(&e).Exec(ctx)
+	return err
+}
+
+func (s *queueStorage) MarkDone(ctx context.Context, date string) error {
+	_, err := s.db.NewUpdate().Model((*DailyQueue)(nil)).
+		Set("status = ?", "done").
+		Where("queue_date::date = ? AND status = ?", date, "pending").
+		Exec(ctx)
 	return err
 }

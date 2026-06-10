@@ -58,12 +58,13 @@ func registerJobs(cfg config.Config, db *bun.DB, loc *time.Location) *scheduler.
 	}
 
 	s := scheduler.New(jobEntries)
-	s.Register(queue.NewQueueJob(
-		loc,
-		access.NewQueueStorage(db),
-		access.NewMemberStorage(db),
-		access.NewHolidayStorage(db),
-	))
+	{
+		qs := access.NewQueueStorage(db)
+		hs := access.NewHolidayStorage(db)
+		ms := access.NewMemberStorage(db)
+		s.Register(queue.NewQueueJob(loc, qs, ms, hs))
+		s.Register(queue.NewMarkQueueDoneJob(loc, qs, hs))
+	}
 
 	return s
 }
