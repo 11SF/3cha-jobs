@@ -13,7 +13,8 @@ import (
 func (j *QueueJob) Name() string { return "daily_queue" }
 
 func (j *QueueJob) Run(ctx context.Context) error {
-	today := time.Now().In(j.loc).Truncate(24 * time.Hour)
+	now := time.Now().In(j.loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, j.loc)
 	date := today.Format("2006-01-02")
 
 	existing, err := j.queueStorage.TodayEntry(ctx, date)
