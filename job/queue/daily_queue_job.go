@@ -46,9 +46,10 @@ func (j *QueueJob) Run(ctx context.Context) error {
 
 	if err := j.queueStorage.CreateEntry(ctx, access.DailyQueue{
 		ID:        uuid.New(),
-		QueueDate: today,
+		QueueDate: time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC),
 		MemberID:  next.ID,
 		Status:    "pending",
+		CreatedAt: time.Now(),
 	}); err != nil {
 		return err
 	}

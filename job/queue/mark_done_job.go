@@ -25,7 +25,8 @@ func NewMarkQueueDoneJob(loc *time.Location, qs access.QueueStorage, hs access.H
 func (j *MarkQueueDoneJob) Name() string { return "mark_queue_done" }
 
 func (j *MarkQueueDoneJob) Run(ctx context.Context) error {
-	today := time.Now().In(j.loc).Truncate(24 * time.Hour)
+	now := time.Now().In(j.loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, j.loc)
 	date := today.Format("2006-01-02")
 
 	if !isWorkingDay(ctx, j.holidayStorage, today, date) {
