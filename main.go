@@ -42,9 +42,9 @@ func main() {
 	}
 
 	now := time.Now().In(bkk)
-	slog.Info("batch triggered", "bkk_hour", now.Hour())
+	slog.Info("batch triggered", "time", now.Format("2006-01-02 15:04:05"))
 
-	if err := s.Run(ctx, now.Hour()); err != nil {
+	if err := s.Run(ctx, now); err != nil {
 		slog.Error("failed to run scheduler", "error", err)
 		panic(err)
 	}

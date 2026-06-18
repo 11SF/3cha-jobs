@@ -24,9 +24,9 @@ type Database struct {
 
 // JobEntry represents one job's schedule config in jobs.json.
 type JobEntry struct {
-	ID     string `json:"id"`
-	Hours  []int  `json:"hours"`
-	Active bool   `json:"active"`
+	ID       string `json:"id"`
+	Schedule string `json:"schedule"` // standard 5-field cron expression
+	Active   bool   `json:"active"`
 }
 
 func (d Database) DSN() string {
