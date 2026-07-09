@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 	"fmt"
+	"os"
 
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
