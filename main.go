@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log/slog"
 	"time"
+	"fmt"
 
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
@@ -48,6 +49,9 @@ func main() {
 		slog.Error("failed to run scheduler", "error", err)
 		panic(err)
 	}
+
+	fmt.Println(os.Getenv("JOB_COMPLETION_INDEX"))
+	time.Sleep(5*time.Second)
 }
 
 func registerJobs(cfg config.Config, db *bun.DB, loc *time.Location) *scheduler.Scheduler {
